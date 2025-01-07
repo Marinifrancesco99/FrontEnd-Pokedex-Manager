@@ -11,7 +11,34 @@ interface Pokemon {
     image_url?: string;  // Opzionale perché useremo un fallback
 }
 
-const PokemonCard: React.FC<{ pokemon: Pokemon }> = ({ pokemon }) => {
+const PokemonCard: React.FC<{ 
+    pokemon: Pokemon;
+    onNavigate: (page: string, pokemonId?: number) => void;
+}> = ({ pokemon, onNavigate }) => {
+    const getImagePath = (pokemonName: string) => {
+        // Gestione casi speciali
+        const specialCases: { [key: string]: string } = {
+            'Nidoran♀': 'nidoranfemale',
+            'Nidoran♂': 'nidoranmale',
+            'Mr. Mime': 'mrmime',
+            'Farfetch\'d': 'farfetchd',
+            'Ho-Oh': 'hooh'
+        };
+
+        let finalPath;
+        if (specialCases[pokemonName]) {
+            finalPath = `/images/${specialCases[pokemonName]}.avif`;
+        } else {
+            const formattedName = pokemonName.toLowerCase()
+                .replace(/['.:\s\-]/g, '')
+                .replace(/♀/g, 'female')
+                .replace(/♂/g, 'male');
+            finalPath = `/images/${formattedName}.avif`;
+        }
+
+        return finalPath;
+    };
+
     // Funzione per ottenere il colore del badge in base al tipo
     const getTypeColor = (type: string) => {
         const typeColors: { [key: string]: string } = {
@@ -56,11 +83,284 @@ const PokemonCard: React.FC<{ pokemon: Pokemon }> = ({ pokemon }) => {
         ));
     };
 
+    const handleAddToPokedex = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        
+        const modalContainer = document.createElement('div');
+        modalContainer.className = 'fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50';
+        
+        const modalContent = document.createElement('div');
+        modalContent.className = 'bg-gray-800 p-8 rounded-2xl shadow-2xl transform transition-all max-w-md w-full mx-4';
+        modalContent.innerHTML = `
+            <div class="text-center">
+                <img src="${getImagePath(pokemon.english_name)}" 
+                     alt="${pokemon.english_name}" 
+                     class="w-32 h-32 mx-auto mb-4 object-contain bg-gray-700 rounded-xl p-2"
+                     onerror="this.src='/images/pikachu.jpg'"
+                />
+                <div id="messageContainer">
+                    <p class="text-xl font-bold text-white mb-6">
+                        Sei sicuro di voler aggiungere <span class="text-emerald-400">${pokemon.english_name}</span> alla Pokedex?
+                    </p>
+                    <div class="flex justify-center gap-4">
+                        <button id="cancelBtn" class="btn bg-red-500 hover:bg-red-600 text-white border-none">
+                            Annulla
+                        </button>
+                        <button id="confirmBtn" class="btn bg-emerald-500 hover:bg-emerald-600 text-white border-none">
+                            OK
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        modalContainer.appendChild(modalContent);
+        document.body.appendChild(modalContainer);
+
+        const showResult = async (response: Response) => {
+            const messageContainer = modalContent.querySelector('#messageContainer');
+            if (messageContainer) {
+                try {
+                    let message = await response.text();
+                    const isSuccess = response.ok;
+                    
+                    // Puliamo il messaggio da caratteri indesiderati
+                    message = message
+                        .replace(/error:\s*/gi, '')
+                        .replace(/error\s*/gi, '')
+                        .replace(/message['":\s]+/gi, '')  // Rimuove 'message' e i caratteri che seguono
+                        .replace(/national[_\s]*number[_\s]*[0-9]+/gi, pokemon.english_name)  // Gestisce varie forme di 'national_number'
+                        .replace(/[{}"]/g, '')  // Rimuove parentesi graffe e virgolette
+                        .replace(/:\s*/g, ' ')  // Rimuove i due punti seguiti da spazi
+                        .replace(/["{]Pokemon aggiunto alla pokedex con successo[}"].*/i, 'Pokemon aggiunto alla pokedex con successo!')  // Formatta il messaggio di successo
+                        .replace(/,\s*national_number[^,}]*/, '')  // Rimuove la parte con national_number
+                        .trim();
+                    
+                    messageContainer.innerHTML = `
+                        <div class="text-center">
+                            <p class="text-xl font-bold ${isSuccess ? 'text-emerald-400' : 'text-red-400'} mb-4">
+                                ${message}
+                            </p>
+                            <button id="closeBtn" class="btn bg-gray-600 hover:bg-gray-700 text-white border-none">
+                                Chiudi
+                            </button>
+                        </div>
+                    `;
+                    
+                    modalContent.querySelector('#closeBtn')?.addEventListener('click', () => {
+                        document.body.removeChild(modalContainer);
+                    });
+                } catch (err) {
+                    messageContainer.innerHTML = `
+                        <div class="text-center">
+                            <p class="text-xl font-bold text-red-400 mb-4">
+                                Si è verificato un problema durante l'operazione
+                            </p>
+                            <button id="closeBtn" class="btn bg-gray-600 hover:bg-gray-700 text-white border-none">
+                                Chiudi
+                            </button>
+                        </div>
+                    `;
+                }
+            }
+        };
+
+        const closeModal = () => {
+            document.body.removeChild(modalContainer);
+        };
+
+        return new Promise((resolve) => {
+            modalContent.querySelector('#cancelBtn')?.addEventListener('click', () => {
+                closeModal();
+                resolve(false);
+            });
+
+            modalContent.querySelector('#confirmBtn')?.addEventListener('click', async () => {
+                try {
+                    const token = localStorage.getItem('token');
+                    const response = await fetch(`/api/v1/protected/pokedex/${pokemon.national_number}`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    await showResult(response);
+                } catch (err) {
+                    console.error('Errore:', err);
+                    const messageContainer = modalContent.querySelector('#messageContainer');
+                    if (messageContainer) {
+                        messageContainer.innerHTML = `
+                            <div class="text-center">
+                                <p class="text-xl font-bold text-red-400 mb-4">
+                                    Errore di connessione al server
+                                </p>
+                                <button id="closeBtn" class="btn bg-gray-600 hover:bg-gray-700 text-white border-none">
+                                    Chiudi
+                                </button>
+                            </div>
+                        `;
+                        
+                        modalContent.querySelector('#closeBtn')?.addEventListener('click', () => {
+                            document.body.removeChild(modalContainer);
+                        });
+                    }
+                }
+            });
+
+            modalContainer.addEventListener('click', (e) => {
+                if (e.target === modalContainer) {
+                    closeModal();
+                    resolve(false);
+                }
+            });
+        });
+    };
+
+    const handleAddToWishlist = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        
+        const modalContainer = document.createElement('div');
+        modalContainer.className = 'fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50';
+        
+        const modalContent = document.createElement('div');
+        modalContent.className = 'bg-gray-800 p-8 rounded-2xl shadow-2xl transform transition-all max-w-md w-full mx-4';
+        modalContent.innerHTML = `
+            <div class="text-center">
+                <img src="${getImagePath(pokemon.english_name)}" 
+                     alt="${pokemon.english_name}" 
+                     class="w-32 h-32 mx-auto mb-4 object-contain bg-gray-700 rounded-xl p-2"
+                     onerror="this.src='/images/pikachu.jpg'"
+                />
+                <div id="messageContainer">
+                    <p class="text-xl font-bold text-white mb-6">
+                        Sei sicuro di voler aggiungere <span class="text-emerald-400">${pokemon.english_name}</span> alla Wishlist?
+                    </p>
+                    <div class="flex justify-center gap-4">
+                        <button id="cancelBtn" class="btn bg-red-500 hover:bg-red-600 text-white border-none">
+                            Annulla
+                        </button>
+                        <button id="confirmBtn" class="btn bg-emerald-500 hover:bg-emerald-600 text-white border-none">
+                            OK
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        modalContainer.appendChild(modalContent);
+        document.body.appendChild(modalContainer);
+
+        const showResult = async (response: Response) => {
+            const messageContainer = modalContent.querySelector('#messageContainer');
+            if (messageContainer) {
+                try {
+                    let message = await response.text();
+                    const isSuccess = response.ok;
+                    
+                    // Puliamo il messaggio da caratteri indesiderati
+                    message = message
+                        .replace(/error:\s*/gi, '')
+                        .replace(/error\s*/gi, '')
+                        .replace(/message['":\s]+/gi, '')
+                        .replace(/national[_\s]*number[_\s]*[0-9]+/gi, pokemon.english_name)
+                        .replace(/[{}"]/g, '')
+                        .replace(/:\s*/g, ' ')
+                        .replace(/["{]Pokemon aggiunto alla wishlist con successo[}"].*/i, 'Pokemon aggiunto alla wishlist con successo!')
+                        .replace(/,\s*national_number[^,}]*/, '')
+                        .trim();
+                    
+                    messageContainer.innerHTML = `
+                        <div class="text-center">
+                            <p class="text-xl font-bold ${isSuccess ? 'text-emerald-400' : 'text-red-400'} mb-4">
+                                ${message}
+                            </p>
+                            <button id="closeBtn" class="btn bg-gray-600 hover:bg-gray-700 text-white border-none">
+                                Chiudi
+                            </button>
+                        </div>
+                    `;
+                    
+                    modalContent.querySelector('#closeBtn')?.addEventListener('click', () => {
+                        document.body.removeChild(modalContainer);
+                    });
+                } catch (err) {
+                    messageContainer.innerHTML = `
+                        <div class="text-center">
+                            <p class="text-xl font-bold text-red-400 mb-4">
+                                Si è verificato un problema durante l'operazione
+                            </p>
+                            <button id="closeBtn" class="btn bg-gray-600 hover:bg-gray-700 text-white border-none">
+                                Chiudi
+                            </button>
+                        </div>
+                    `;
+                }
+            }
+        };
+
+        const closeModal = () => {
+            document.body.removeChild(modalContainer);
+        };
+
+        return new Promise((resolve) => {
+            modalContent.querySelector('#cancelBtn')?.addEventListener('click', () => {
+                closeModal();
+                resolve(false);
+            });
+
+            modalContent.querySelector('#confirmBtn')?.addEventListener('click', async () => {
+                try {
+                    const token = localStorage.getItem('token');
+                    const response = await fetch(`/api/v1/protected/wishlist/${pokemon.national_number}`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    await showResult(response);
+                } catch (err) {
+                    console.error('Errore:', err);
+                    const messageContainer = modalContent.querySelector('#messageContainer');
+                    if (messageContainer) {
+                        messageContainer.innerHTML = `
+                            <div class="text-center">
+                                <p class="text-xl font-bold text-red-400 mb-4">
+                                    Errore di connessione al server
+                                </p>
+                                <button id="closeBtn" class="btn bg-gray-600 hover:bg-gray-700 text-white border-none">
+                                    Chiudi
+                                </button>
+                            </div>
+                        `;
+                        
+                        modalContent.querySelector('#closeBtn')?.addEventListener('click', () => {
+                            document.body.removeChild(modalContainer);
+                        });
+                    }
+                }
+            });
+
+            modalContainer.addEventListener('click', (e) => {
+                if (e.target === modalContainer) {
+                    closeModal();
+                    resolve(false);
+                }
+            });
+        });
+    };
+
     return (
-        <div className="card w-72 bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
+        <div 
+            className="card w-72 bg-base-100 shadow-xl hover:shadow-2xl transition-shadow cursor-pointer" 
+            onClick={() => onNavigate('detail', pokemon.national_number)}
+        >
             <figure className="px-6 pt-6 h-48 flex items-center justify-center bg-gray-100 rounded-t-xl">
                 <img 
-                    src={pokemon.image_url || '/images/pikachu.jpg'} 
+                    src={getImagePath(pokemon.english_name)}
                     alt={pokemon.english_name}
                     className="max-h-full max-w-full object-contain"
                     onError={(e) => {
@@ -75,6 +375,20 @@ const PokemonCard: React.FC<{ pokemon: Pokemon }> = ({ pokemon }) => {
                 <p className="text-sm text-gray-500 mb-2">Gen {pokemon.gen}</p>
                 <div className="flex flex-wrap gap-2 justify-center">
                     {renderTypes()}
+                </div>
+                <div className="card-actions justify-center mt-4 gap-2">
+                    <button 
+                        className="btn btn-primary btn-sm"
+                        onClick={handleAddToPokedex}
+                    >
+                        Aggiungi a Pokedex
+                    </button>
+                    <button 
+                        className="btn btn-secondary btn-sm"
+                        onClick={handleAddToWishlist}
+                    >
+                        Aggiungi a Wishlist
+                    </button>
                 </div>
             </div>
         </div>
@@ -162,7 +476,8 @@ const DashboardPage: React.FC<{ onNavigate: (page: string) => void; onLogout: ()
                 {pokemons.map((pokemon) => (
                     <PokemonCard 
                         key={`pokemon-card-${pokemon.national_number}`} 
-                        pokemon={pokemon} 
+                        pokemon={pokemon}
+                        onNavigate={onNavigate}
                     />
                 ))}
             </div>

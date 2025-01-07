@@ -13,7 +13,7 @@ const Header: React.FC<HeaderProps> = ({ title, currentPage, onNavigate, onLogou
         <h1 className="text-xl font-bold">{title}</h1>
         <nav>
             <ul className="flex space-x-4">
-                {currentPage === 'dashboard' ? (
+                {currentPage === 'dashboard' || currentPage === 'pokedex' || currentPage === 'wishlist' ? (
                     <>
                         <li>
                             <button 
@@ -23,6 +23,36 @@ const Header: React.FC<HeaderProps> = ({ title, currentPage, onNavigate, onLogou
                                 Home
                             </button>
                         </li>
+                        {currentPage !== 'dashboard' && (
+                            <li>
+                                <button 
+                                    onClick={() => onNavigate('dashboard')}
+                                    className="cursor-pointer hover:text-gray-300"
+                                >
+                                    Dashboard
+                                </button>
+                            </li>
+                        )}
+                        {currentPage !== 'pokedex' && (
+                            <li>
+                                <button 
+                                    onClick={() => onNavigate('pokedex')}
+                                    className="cursor-pointer hover:text-gray-300"
+                                >
+                                    Pokedex
+                                </button>
+                            </li>
+                        )}
+                        {currentPage !== 'wishlist' && (
+                            <li>
+                                <button 
+                                    onClick={() => onNavigate('wishlist')}
+                                    className="cursor-pointer hover:text-gray-300"
+                                >
+                                    Wishlist
+                                </button>
+                            </li>
+                        )}
                         <li>
                             <button 
                                 onClick={onLogout}
