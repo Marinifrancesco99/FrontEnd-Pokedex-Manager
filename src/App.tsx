@@ -1,11 +1,12 @@
 // App.tsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Login from './components/organisms/Login';
 import DashboardPage from './components/organisms/DashboardPage';
 import PokedexHomepage from './components/organisms/PokedexHomepage';
 import PokedexPage from './components/organisms/PokedexPage';
 import WishlistPage from './components/organisms/WishlistPage';
 import PokemonDetailPage from './components/organisms/PokemonDetailPage';
+import Register from './components/organisms/Register';
 
 interface DetailPageState {
   pokemonId: number;
@@ -52,34 +53,35 @@ function App() {
     setDetailPageState(null);
   };
 
-  if (currentPage === 'login') {
-    return <Login onLoginSuccess={handleLoginSuccess} onNavigate={handleNavigate} />;
-  }
+  const renderContent = () => {
+    switch (currentPage) {
+      case 'home':
+        return <PokedexHomepage onNavigate={setCurrentPage} />;
+      case 'login':
+        return <Login onNavigate={setCurrentPage} onLoginSuccess={handleLoginSuccess} />;
+      case 'register':
+        return <Register onNavigate={setCurrentPage} />;
+      case 'dashboard':
+        return <DashboardPage onNavigate={handleNavigate} onLogout={handleLogout} />;
+      case 'pokedex':
+        return <PokedexPage onNavigate={handleNavigate} onLogout={handleLogout} />;
+      case 'wishlist':
+        return <WishlistPage onNavigate={handleNavigate} onLogout={handleLogout} />;
+      case 'detail':
+        return (
+          <PokemonDetailPage 
+            onNavigate={handleNavigate}
+            onLogout={handleLogout}
+            pokemonId={detailPageState?.pokemonId || 1}
+            returnTo={detailPageState?.returnTo || 'home'}
+          />
+        );
+      default:
+        return <PokedexHomepage onNavigate={handleNavigate} />;
+    }
+  };
 
-  if (currentPage === 'dashboard' && isLoggedIn) {
-    return <DashboardPage onNavigate={handleNavigate} onLogout={handleLogout} />;
-  }
-
-  if (currentPage === 'pokedex' && isLoggedIn) {
-    return <PokedexPage onNavigate={handleNavigate} onLogout={handleLogout} />;
-  }
-
-  if (currentPage === 'wishlist' && isLoggedIn) {
-    return <WishlistPage onNavigate={handleNavigate} onLogout={handleLogout} />;
-  }
-
-  if (currentPage === 'detail' && detailPageState && isLoggedIn) {
-    return (
-      <PokemonDetailPage 
-        onNavigate={handleNavigate}
-        onLogout={handleLogout}
-        pokemonId={detailPageState.pokemonId}
-        returnTo={detailPageState.returnTo}
-      />
-    );
-  }
-
-  return <PokedexHomepage onNavigate={handleNavigate} />;
+  return renderContent();
 }
 
 export default App;

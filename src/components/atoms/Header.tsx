@@ -8,73 +8,67 @@ interface HeaderProps {
     onLogout?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ title, currentPage, onNavigate, onLogout }) => (
-    <header className="bg-gray-800 text-white p-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold">{title}</h1>
-        <nav>
-            <ul className="flex space-x-4">
-                {currentPage === 'dashboard' || currentPage === 'pokedex' || currentPage === 'wishlist' ? (
+const Header: React.FC<HeaderProps> = ({ title, currentPage, onNavigate, onLogout }) => {
+    return (
+        <div className="navbar bg-base-100">
+            <div className="flex-1">
+                <span className="text-xl font-bold">{title}</span>
+            </div>
+            <div className="flex-none gap-2">
+                {currentPage === 'home' ? (
+                    <div className="flex gap-2">
+                        <button 
+                            className="btn btn-primary"
+                            onClick={() => onNavigate('login')}
+                        >
+                            Login
+                        </button>
+                        <button 
+                            className="btn btn-secondary"
+                            onClick={() => onNavigate('register')}
+                        >
+                            Registrati
+                        </button>
+                    </div>
+                ) : (
                     <>
-                        <li>
-                            <button 
-                                onClick={() => onNavigate('home')}
-                                className="cursor-pointer hover:text-gray-300"
-                            >
-                                Home
-                            </button>
-                        </li>
                         {currentPage !== 'dashboard' && (
-                            <li>
-                                <button 
-                                    onClick={() => onNavigate('dashboard')}
-                                    className="cursor-pointer hover:text-gray-300"
-                                >
-                                    Dashboard
-                                </button>
-                            </li>
+                            <button 
+                                className="btn btn-ghost"
+                                onClick={() => onNavigate('dashboard')}
+                            >
+                                Dashboard
+                            </button>
                         )}
                         {currentPage !== 'pokedex' && (
-                            <li>
-                                <button 
-                                    onClick={() => onNavigate('pokedex')}
-                                    className="cursor-pointer hover:text-gray-300"
-                                >
-                                    Pokedex
-                                </button>
-                            </li>
+                            <button 
+                                className="btn btn-ghost"
+                                onClick={() => onNavigate('pokedex')}
+                            >
+                                Pokedex
+                            </button>
                         )}
                         {currentPage !== 'wishlist' && (
-                            <li>
-                                <button 
-                                    onClick={() => onNavigate('wishlist')}
-                                    className="cursor-pointer hover:text-gray-300"
-                                >
-                                    Wishlist
-                                </button>
-                            </li>
-                        )}
-                        <li>
                             <button 
+                                className="btn btn-ghost"
+                                onClick={() => onNavigate('wishlist')}
+                            >
+                                Wishlist
+                            </button>
+                        )}
+                        {onLogout && (
+                            <button 
+                                className="btn btn-error"
                                 onClick={onLogout}
-                                className="cursor-pointer hover:text-gray-300"
                             >
                                 Logout
                             </button>
-                        </li>
+                        )}
                     </>
-                ) : (
-                    <li>
-                        <button 
-                            onClick={() => onNavigate(currentPage === 'login' ? 'home' : 'login')}
-                            className="cursor-pointer hover:text-gray-300"
-                        >
-                            {currentPage === 'login' ? 'Home' : 'Login'}
-                        </button>
-                    </li>
                 )}
-            </ul>
-        </nav>
-    </header>
-);
+            </div>
+        </div>
+    );
+};
 
 export default Header;
